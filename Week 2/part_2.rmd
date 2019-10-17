@@ -1,0 +1,91 @@
+---
+title: "esearching stuff, Part 2 of the assignment for week 2"
+author: "Mrinal Vashisth Submitted to; Professor Mike Ryako"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+############################################################
+# setting up
+############################################################
+# We will use rentrez
+
+library('rentrez')
+
+entrez_dbs()
+```
+```{r}
+# Ja, so these all databases we can use
+############################################################
+# search for a given term
+############################################################
+
+# We need to craft this part for targeted search through the database
+search_term <- 'GSPT1[GENE] AND Homo sapiens[ORGN]'
+
+# Using history will allow us to further easily search for accessions
+search_object <- rentrez::entrez_search(db = 'nucleotide', term = search_term,
+                                        use_history = TRUE, retmax = 0)
+search_object
+
+```
+
+```{r}
+############################################################
+# Get accession numbers
+############################################################
+accessions <- rentrez::entrez_fetch(db = 'nucleotide',
+                                    web_history = search_object$web_history,
+                                    rettype = 'acc')
+
+accessions <- strsplit(x = accessions, split = '\\n')[[1]]
+accessions <- sub(pattern = '\\.[0-9]+', replacement = '', x = accessions)
+accessions
+```
+
+```{r}
+############################################################
+# Retrieve sequences
+############################################################
+path = '/home/mrinalmanu/Documents/output_phylo/Part_II'
+setwd(path)
+
+gspt_sequences <- rentrez::entrez_fetch(db='nucleotide',id = accessions, rettype='fasta')
+
+# I can't view the entire sequence as an output
+
+```
+
+```{r}
+############################################################
+# Getting summary
+############################################################
+
+accession_summary <- rentrez::entrez_summary(db = 'nucleotide', id = accessions)
+# This ID does exist in our results.
+accession_summary
+
+```
+
+```{r}
+############################################################
+# Writing outputs
+############################################################
+
+# 1. Saving all sequences to a text
+# write(gspt_sequences, file = "./gspt_seq.fasta")
+
+# Viewing list of lists from summary
+for (items in accession_summary){
+  print(items)
+  for (elem in items){
+    print(elem)
+  }
+}
+
+# We could also have saved each sequence as an individual files by writing a for loop and directing the output to write() function
+
+
+```

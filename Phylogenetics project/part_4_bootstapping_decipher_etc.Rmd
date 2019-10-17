@@ -1,0 +1,148 @@
+---
+title: "part_4_bootstrapping_etc.Rmd"
+author: "Mrinal Vashisth"
+date: "10/13/2019"
+output: html_document
+---
+
+```{r}
+library(ape)
+library(phangorn)
+library(DECIPHER)
+library(ggtree)
+### edits import
+library(readr)
+edits <- read_csv("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/raw_data/edits", 
+    col_names = FALSE)
+edits <- unlist(unique(edits$X1))
+library(msa)
+library(seqinr)
+
+```
+
+```{r}
+#############################
+# Loading Decipher alignment
+#############################
+
+sequences <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Mini Project/output/raw_data/ascl1_seq_unique_INPUT.fasta"
+mRNA <- readRNAStringSet(sequences)
+mRNA # the unaligned transcripts
+
+mRNA@ranges@NAMES <- edits
+
+alignedRNA <- AlignSeqs(mRNA, gapOpening = -2, gapExtension = -10) # align with RNA secondary structure
+head(alignedRNA)
+RNA_adjusted <- AdjustAlignment(alignedRNA)
+RNA_final <- StaggerAlignment(RNA_adjusted)
+
+matrix_RNA_f <- DistanceMatrix(RNA_final,
+               type = "matrix",
+               includeTerminalGaps = FALSE,
+               penalizeGapLetterMatches = TRUE,
+               penalizeGapGapMatches = FALSE,
+               correction = "none",
+               processors = 1,
+               verbose = TRUE)
+
+tree <- nj(matrix_RNA_f)
+
+myTree <- root(tree, outgroup = c('Helianthus annuus LAG1'))
+
+```
+
+```{r}
+# Initial tree
+
+edits[[59]] <- c("Homo sapiens")
+edits[[79]] <- c("Mus musculus")
+edits[[113]] <- c("Helianthus annuus")
+edits[[165]] <- c("Panthera tigris altaica")
+  
+info <- read_csv("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/group_info.csv")
+myTree$tip.label <- info$`info...class... > info...query...`
+
+groupInfo <- split(myTree$tip.label, gsub("(>\\w+)", "", myTree$tip.label))
+ascl1 <- groupOTU(myTree, groupInfo)
+
+#jpeg(f_name, units="in", width=7, height=7, res=1000)
+
+ggtree(ascl1, aes(color=group), layout='circular', branch.length="none") + geom_tiplab(size=1, aes(angle=angle)) 
+#dev.off()
+
+```
+
+```{r}
+##############################################################
+# Getting Maximum Likelihood Tree
+##############################################################
+# Convert the sequences from a DNAbin format into a PhyDat format
+# Read in the FASTA file
+sequencesDNAbin <- read.dna("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/rna_final.fasta", format = "fasta", skip=0)
+
+sequencesPhyDat <- phyDat(sequencesDNAbin, type = "CODON", levels = NULL)
+
+# Compute likelihood of the initial Neighbour Joining tree given sequences
+likelihoodObject <- pml(tree, sequencesPhyDat)
+
+# Set the controls for the Maximum Likelihood algorithm
+controls <- pml.control(maxit=100, trace=0)
+
+# Run maximum likelihood
+fittingOutput <- optim.pml(likelihoodObject,
+optNni = TRUE, # Optimise topology
+optInv = TRUE, # Optimise proportion of variable sites
+model = "JC", # Substitution model
+rearrangement="NNI", # Nearest Neighbour Interchanges
+control=controls)
+
+# Get the Maximum Likelihood tree
+mlTree <- fittingOutput$tree
+
+plot(mlTree)
+```
+
+
+```{r}
+##############################################################
+# Some BS (BootStrapping)
+##############################################################
+
+# Bootstrap the result of maximum likelihood
+bootstrapResults <- bootstrap.pml(
+fittingOutput, # Use Maximium Likelihood settings on bootstrapped sequences
+bs = 10, # Number times to bootstrap sequences
+optNni = TRUE, # Use Nearest Neighbour Interchanges in tree building
+jumble=TRUE) # Jumble bootstrapped sequences before building trees
+
+
+```
+```{r}
+
+tree_name <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/refined_output/bootstrapped_tree_10_times_JC.nex"
+tree_rooted <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/refined_output/rooted_bootstrapped_tree_10_times_JC.nex"
+
+mega_list <- list()
+
+for (i in seq(1,10,by=1)){
+  root_item <- root.phylo(bootstrapResults[[i]], outgroup = c('Helianthus annuus LAG1'))
+  mega_list <- c(mega_list, list(root_item))
+}
+
+
+
+#write.nexus(mega_list, file = tree_rooted)
+#jpeg("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/refined_output/Organised_bootstrap_20.times_decipher_JC_100.reps.jpeg", units="in", width=25, height=50, res=500)
+
+# Returns phylogenetic tree with bootstrap values as node labels
+treeBS <- plotBS(
+midpoint(fittingOutput$tree),
+bootstrapResults,
+p = 20, #  Plot bootstrap values if node in >=50 bootstrap trees 
+type="phylogram") # Type of phylogenetic tree shape to plot
+
+#dev.off()
+
+###########################################################################################
+
+```

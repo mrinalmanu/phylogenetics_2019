@@ -1,0 +1,75 @@
+---
+title: "R homework number 1, Phylogenetics"
+author: 
+- Mrinal Vashisth
+- Submitted to Professor Mike Ryako as first assignment.
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_document
+---
+
+```{r}
+# install.packages('BiocManager')
+library(BiocManager)
+# BiocManager::install('Biostrigs')
+# BiocManager::install('ggtree')
+# BiocManager::install('ape')
+# BiocManager::install('ggtree')
+library(ape)
+library(ggplot2)
+library(ggtree)
+
+```
+
+```{r}
+
+###################
+#   1, 2 and 3 ALSO 8
+###################
+
+tree <- read.tree('/home/mrinalmanu/Documents/life.txt')
+
+ggtree(tree, layout="circular") + ggtitle("The circle of life")
+
+
+```
+
+```{r}
+################### 
+#   4 ALSO 9
+###################
+
+# Let's make it more readable
+
+data(tree, package="ape")
+
+groupInfo <- split(tree$tip.label, gsub("_\\w+", "", tree$tip.label))
+
+tree <- groupOTU(tree, groupInfo)
+
+###################
+#Saving this tree #
+###################
+
+# pdf("/home/mrinalmanu/Desktop/cool_tree.pdf", width = 5, height = 5)
+
+ggtree(tree, aes(color=group), layout='circular') + geom_tiplab(size=1, aes(angle=angle))
+
+# dev.off()
+
+```
+
+```{r}
+###################
+#    5 and 6
+###################
+
+tree2 <- read.tree(text = '(((A, B), (C, D)), E);')
+
+# Saving this tree
+
+# pdf("/home/mrinalmanu/Desktop/relatively_okay_tree.pdf", width = 1, height = 0.5)
+
+ggtree(tree2, aes(color='red'), layout='rectangular') + geom_tiplab(size=1, aes(angle=angle))
+
+# dev.off()
+```

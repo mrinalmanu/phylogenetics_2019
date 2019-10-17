@@ -1,0 +1,162 @@
+---
+title: "part_3_different_alignment"
+author: "Mrinal Vashisth"
+date: "10/5/2019"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(seqinr)
+library(msa)
+library(ape)
+library(grid)
+### edits import
+library(readr)
+edits <- read_csv("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/raw_data/edits", 
+    col_names = FALSE)
+edits <- unlist(unique(edits$X1))
+library("ggplot2")
+library("ggtree")
+# Network modules
+library(ggfortify)
+library(gplots)
+library(alignfigR)
+library(micropan)
+
+```
+
+```{r}
+#############################################
+## MSA CLUSTAL OMEGA
+#############################################
+sequences <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/raw_data/ascl1_seq_unique_INPUT.fasta"
+rna <- readDNAStringSet(sequences)
+rna@ranges@NAMES <- edits
+
+```
+
+```{r}
+clusta_w_cool <- msa(rna, "ClustalW", gapOpening = -10)
+# write the aligned sequences to a FASTA file
+name <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_clustalw/RNA_final_clustal_omega_ascl1"
+#writeXStringSet(RNA_final, file=name)
+```
+
+```{r}
+#############################################
+## Get Tree
+#############################################
+aln <- msaConvert(clusta_w_cool, type="seqinr::alignment")
+aln$nam <- edits
+
+d <- dist.alignment(aln, "identity")
+
+d_mat <- as.matrix(d)
+
+myclTree <- nj(d)
+
+myclTree$tip.label <- edits
+
+rooted_cl_tree <- root(myclTree, outgroup = c('Helianthus annuus LAG1'))
+
+
+```
+
+```{r}
+
+###############################################################################
+# Converting msa alignment objects into plottable objects of class 'XStringSet'
+###############################################################################
+
+# since we can't plot aln as a dataframe, we need to convert it into a list
+
+info_name <- list()
+for (item in aln$nam){
+  info_name <- append(info_name, item)
+}
+
+info_seq <- list()
+for (item in aln$seq){
+  info_seq <- append(info_seq, item)
+}
+
+mega_list <- list()
+for (i in seq(1, 234, by=1)){
+  elem_seq <- list()
+  elem_name <- info_name[[i]]
+  elem_seq <- strsplit(info_seq[[i]], "")
+  names(elem_seq) <- elem_name
+  mega_list <- append(mega_list, elem_seq)
+  }
+
+##########
+
+alns_plot <- plot_alignment(mega_list, "rna", legend_title = "") 
+
+#jpeg("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_clustalw/aln_details_NX_2x7.jpeg", width = 5000, height = 7000)
+
+alns_plot + ggtitle("Ascl1 gene aligned across Animalia") + annotate("text", x = 0, y = 0:233, label = edits, size = 7, alpha = .7) + scale_y_reverse()
+
+#dev.off()
+
+# write the aligned sequences to a FASTA file
+# name <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_clustalw/rna_final_clustal_omega.fasta"
+# class(mega_list) <- 'XStringSet'
+# writeXStringSet(mega_list, file=name)
+
+```
+
+```{r}
+f_name <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_clustalw/clustal_w_tree.jpeg"
+info <- read_csv("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/group_info.csv")
+myclTree$tip.label <- info$`info...class... > info...query...`
+
+groupInfo <- split(myclTree$tip.label, gsub("(>\\w+)", "", myclTree$tip.label))
+ascl1 <- groupOTU(myclTree, groupInfo)
+
+#jpeg(f_name, units="in", width=7, height=7, res=1000)
+
+ggtree(ascl1, aes(color=group), layout='circular', branch.length="none") + geom_tiplab(size=1, aes(angle=angle)) 
+#dev.off()
+```
+
+```{r}
+
+# Let's get a cleaner view
+
+nf_name_1 <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_clustalw/the_heatmap.jpeg"
+nf_name_2 <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_clustalw/the_tree.jpeg"
+nf_name_3 <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_clustalw/the_alignment.jpeg"
+
+mtscaled <- as.matrix(d_mat)
+tree_plot <- ggtree(ascl1, aes(color=group), layout='rectangular') + geom_tiplab(size=1, align=TRUE, linesize=0.2) + theme_tree2()
+
+#jpeg(nf_name_1, units="in", width=9, height=5, res=500)
+heatmap.2(mtscaled, Rowv=FALSE, dendrogram="both", col=bluered)
+
+#dev.off()
+
+#jpeg(nf_name_2, units="in", width=5, height=5, res=500)
+tree_plot
+
+#dev.off()
+
+#jpeg(nf_name_3, units="in", width=5, height=5, res=500)
+alns_plot
+#dev.off()
+
+```
+
+```{r}
+# Let's get a more cleaner perspective
+
+#pdf("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/phylogenetics_project/output/clusters_data.pdf", width=15, height=15)
+#jpeg("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_clustalw/clust_w_clusters.jpeg", units="in", width=4, height=4, res=2000)
+
+x <- autoplot(kmeans(data.frame(d_mat), 8), data = data.frame(d_mat), shape = FALSE, label = TRUE, label.size = 0.4, frame.type = 'norm', alpha=0.01)
+x + theme(legend.position = "none")
+
+#dev.off()
+
+```

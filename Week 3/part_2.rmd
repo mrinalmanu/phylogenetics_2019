@@ -1,0 +1,239 @@
+---
+title: "hw_3_part_2"
+author: "Mrinal Vashisth"
+date: "10/3/2019"
+output: html_document
+---
+
+```{r}
+# Part 2
+# Imports
+library(ggplot2)
+library("ape")
+library("ggdendro")
+library(alignfigR)
+library(seqinr)
+# BiocManager::install('alignfigR')
+# BiocManager::install('ggdendro')
+# BiocManager::install('DECIPHER')
+library(DECIPHER)
+# BiocManager::install('muscle')
+library(muscle)
+library(annotate)
+library(msa)
+
+```
+
+```{r}
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  # 
+# Redoing the same steps with the SUP35_250seqs.fa file
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  # 
+
+#############################################
+## DECIPHER
+#############################################
+
+sequences <- "/home/mrinalmanu/Documents/3_sem_hws/phylo_3/data/SUP35_250seqs.fsa"
+dna <- readDNAStringSet(sequences)
+dna # the unaligned sequences
+
+```
+
+```{r}
+DNA <- AlignSeqs(dna) # align the sequences directly without translation
+
+DNA <- AlignTranslation(dna) # align the translation then reverse translate
+```
+
+```{r}
+
+#BrowseSeqs(DNA, highlight=1) # view the alignment
+
+```
+
+```{r}
+# form a chained guide tree
+gT <- lapply(order(width(dna), decreasing=TRUE),
+  function(x) {
+  attr(x, "height") <- 0
+  attr(x, "label") <- names(dna)[x]
+  attr(x, "members") <- 1L
+  attr(x, "leaf") <- TRUE
+  x
+  })
+
+attr(gT, "height") <- 0.5
+attr(gT, "members") <- length(dna)
+class(gT) <- "dendrogram"
+
+##### The aligment imporves based on the guide tree
+# use the guide tree as input for alignment
+dc_start_time <- Sys.time()
+
+DNA <- AlignTranslation(dna,
+        guideTree=gT,
+        iterations=0,
+        refinements=0)
+
+dc_end_time <- Sys.time()
+
+dc_ex_t <- dc_end_time - dc_start_time
+
+# Visualization using the default theme named theme_dendro()
+ggdendrogram(gT, rotate = TRUE, theme_dendro = FALSE)
+
+```
+
+
+```{r}
+
+# let's optimize our alignment
+
+#BrowseSeqs(DNA, highlight=0)
+
+DNA_adjusted <- AdjustAlignment(DNA)
+
+# Tending to the problem of false homologies; one function can do this automatically!
+DNA_staggered <- StaggerAlignment(DNA)
+
+# #BrowseSeqs(DNA_staggered, highlight=1)
+
+```
+
+```{r}
+
+#############################################
+## Muscle
+#############################################
+ms_start_time <- Sys.time()
+
+muscle_alignment_with_penalty <- muscle(dna, gapopen = -10)
+
+ms_end_time <- Sys.time()
+
+ms_ex_t <- ms_end_time - ms_start_time
+
+#msaPrettyPrint(muscle_alignment, y=c(164, 213), output="asis", showNames="none", showLogo="none", askForOverwrite=FALSE)
+```
+
+```{r}
+
+#############################################
+## Clustal Omega
+#############################################
+
+strings_given <- dna
+cs_start_time <- Sys.time()
+
+clusta_w_cool <- msa(strings_given, "ClustalW", gapOpening = -10)
+
+cs_end_time <- Sys.time()
+
+cs_ex_time <- cs_end_time - cs_start_time
+
+#msaPrettyPrint(clusta_w_cool, y=c(164, 213), output="asis", showNames="none", showLogo="none", askForOverwrite=FALSE)
+
+```
+
+
+```{r}
+#############################################
+## Clustal
+#############################################
+c_start_time <- Sys.time()
+
+ALN <- msa(strings_given)
+
+c_end_time <- Sys.time()
+
+c_ex_time <- c_start_time - c_end_time
+
+ALN
+
+```
+
+```{r}
+print('time for DECIPHER for 250seqs fa:')
+dc_ex_t
+print('time for Muscle for 250seqs fa:')
+ms_ex_t
+print('time for Clustal_omega for 250seqs fa:')
+cs_ex_time 
+print('time for Clustal for 250seqs fa:')
+c_ex_time
+
+# With optimisation I find Decipher as the best. 
+```
+
+```{r}
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  # 
+# Aligning 2 alignments
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  # 
+
+# I have chosen to work with DECIPHER again
+# I will use optimised DNA_staggered alignment
+seq1 <- readDNAStringSet('/home/mrinalmanu/Documents/3_sem_hws/phylo_3/data/SUP35_1addseq.fsa')
+
+```
+
+```{r}
+
+
+AAx <- AlignProfiles(seq1, DNA_staggered) # align two alignments
+# AAx
+#BrowseSeqs(AAx, highlight=1)
+
+```
+
+```{r}
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  # 
+# Aligning pre-aligned alignments
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  # 
+
+# Once again aligning two sequences together first
+seq1 <- readDNAStringSet('/home/mrinalmanu/Documents/3_sem_hws/phylo_3/data/SUP35_1addseq.fsa')
+seq2 <- readDNAStringSet('/home/mrinalmanu/Documents/3_sem_hws/phylo_3/data/SUP35_2addseqs.fsa')
+
+half <- floor(length(seq1)/2)
+dna1 <- seq1[1:half] # first half
+dna2 <- seq2[(half + 1):length(seq2)] # second half
+profile_1 <- AlignProfiles(dna1, dna2) # align two alignments
+
+profile_2 <- DNA_staggered
+  
+AAcombined <- AlignProfiles(profile_1, profile_2) # align two alignments
+# AAcombined
+#BrowseSeqs(AAcombined, highlight=1)
+
+###################
+# Before moving to the next step, let's first save this alignment to a fasta
+###################
+
+# write the aligned sequences to a FASTA file
+# writeXStringSet(AAcombined, file="/home/mrinalmanu/Documents/3_sem_hws/phylo_3/data/combined_output.fasta")
+```
+
+```{r}
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  # 
+# Gblocks
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
+
+# Options for a more stringent selection:
+# Do not allow many contiguous nonconserved positions
+ 
+print("New number of positions in combined_output.fasta-gb:  1868  (85% of the original 2190 positions)")
+
+## So 85% remained.
+
+# Additional notes:
+#
+# 1) AlignTranslation aligns DNA/RNA seq based on their amino acid translation and then reverse translation of the same.
+# 2.) AdjustAlignment takes an existing alignment and plays around with gaps  for better alignments
+# 3.) StaggeredAlignment separates homologies into separate columns. This is aimed at minimizing false homologies.
+# 
+# O(n) of the Decipher algorithm is N*M. From O(n^4)… this become O(n). Pretty cool!
+# 
+# It’s performance is similar to muscle for smaller benchmarks. But for larger alignments, it is super fast! [From original paper: http://www2.decipher.codes/AlignProfiles.html].
+# 
+
+```

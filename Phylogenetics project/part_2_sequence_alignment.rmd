@@ -1,0 +1,182 @@
+---
+title: "part_2_sequence_alignment"
+author: "Mrinal Vashisth"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(DECIPHER)
+library(ape)
+library(stringr)
+library(phangorn)
+library("ggplot2")
+library("ggtree")
+library(alignfigR)
+library(grid)
+### edits import
+library(readr)
+edits <- read_csv("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/raw_data/edits", 
+    col_names = FALSE)
+# Selecting unique labes from edits text
+edits <- unlist(unique(edits$X1))
+
+library(tidyr)
+library(ggpubr)
+###
+
+# Network modules
+library(ggfortify)
+library(gplots)
+# BiocManager::install('taxize')
+library(taxize)
+library(ggrepel)
+
+```
+
+```{r}
+#############################################
+## MSA DECIPHER
+#############################################
+
+sequences <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Mini Project/output/raw_data/ascl1_seq_unique_INPUT.fasta"
+mRNA <- readRNAStringSet(sequences)
+mRNA # the unaligned transcripts
+
+mRNA@ranges@NAMES <- edits
+```
+One problem with this fasta file is that there are sequences with transcript varaints. We don't want these sequences.
+
+So the entire text is searched with this regex expression. There are about 63 such variants!
+
+.*transcript variant X2.*\n.*(?:\n[ \t]*\S.*)+
+
+and the sequences are removed.
+
+```{r,  echo=FALSE, results='hide'}
+alignedRNA <- AlignSeqs(mRNA, gapOpening = -2, gapExtension = -10) # align with RNA secondary structure
+head(alignedRNA)
+RNA_adjusted <- AdjustAlignment(alignedRNA)
+RNA_final <- StaggerAlignment(RNA_adjusted)
+
+```
+
+```{r,  echo=FALSE, results='hide'}
+# BrowseSeqs(RNA_final, 
+#            highlight=1, 
+#    threshold=0.7,
+#    minInformation=0.7,
+#    colWidth=500)
+
+# write the aligned sequences to a FASTA file
+name <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/rna_final.fasta"
+#writeXStringSet(RNA_final, file=name)
+
+my_data <- read_alignment(name)
+
+# Default DNA colors
+####
+# I manipulated the annotate feature to append the texts from a dataframe onto the pdf
+####
+
+#new_edits <- edits[rev(rownames(edits)),]
+
+alns_plot <- plot_alignment(my_data, "rna", legend_title = "") 
+
+#jpeg("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/aln_details_NX_2x7.jpeg", width = 5000, height = 7000)
+
+alns_plot + ggtitle("Ascl1 gene aligned across Animalia") + annotate("text", x = 0, y = 0:233, label = edits, size = 7, alpha = .7) + scale_y_reverse()
+
+#dev.off()
+```
+
+```{r}
+#############################################
+## Get Tree
+#############################################
+
+matrix_RNA_f <- DistanceMatrix(RNA_final,
+               type = "matrix",
+               includeTerminalGaps = FALSE,
+               penalizeGapLetterMatches = TRUE,
+               penalizeGapGapMatches = FALSE,
+               correction = "none",
+               processors = 1,
+               verbose = TRUE)
+
+tree <- nj(matrix_RNA_f)
+
+myTree <- root(tree, outgroup = c('Helianthus annuus LAG1'))
+
+#write.tree(myTree, file="/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/Decipher_rooted_ascl1.tree")
+
+```
+
+```{r}
+f_name <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/ascl1_circ_tree.jpeg"
+
+edits[[59]] <- c("Homo sapiens")
+edits[[79]] <- c("Mus musculus")
+edits[[113]] <- c("Helianthus annuus")
+edits[[165]] <- c("Panthera tigris altaica")
+
+# n <- 234
+# nr <- 234
+# specieslist <- split(edits, rep(1:ceiling(nr/n), each=n, length.out=nr))
+# 
+# # info <- list()
+# # for (item in specieslist){
+# #   info <- append(info, tax_name(query = item, get = "class", db = "ncbi"))
+# # }
+# groups <- data.frame(info[["query"]], info[["class"]])
+# write.csv(groups,'/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/group_info.csv')
+info <- read_csv("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/group_info.csv")
+myTree$tip.label <- info$`info...class... > info...query...`
+
+groupInfo <- split(myTree$tip.label, gsub("(>\\w+)", "", myTree$tip.label))
+ascl1 <- groupOTU(myTree, groupInfo)
+
+#jpeg(f_name, units="in", width=7, height=7, res=1000)
+
+ggtree(ascl1, aes(color=group), layout='circular', branch.length="none") + geom_tiplab(size=1, aes(angle=angle)) 
+#dev.off()
+```
+
+```{r}
+# Let's get a cleaner view
+
+nf_name_1 <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/the_heatmap.jpeg"
+nf_name_2 <- nf_name_1 <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/the_tree.jpeg"
+nf_name_3 <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/the_alignment.jpeg"
+
+mtscaled = as.matrix(matrix_RNA_f)
+tree_plot <- ggtree(ascl1, aes(color=group), layout='rectangular') + geom_tiplab(size=1, align=TRUE, linesize=0.2) + theme_tree2()
+
+#jpeg(nf_name_1, units="in", width=9, height=5, res=500)
+heatmap.2(mtscaled, Rowv=FALSE, dendrogram="both", col=bluered)
+#dev.off()
+
+#jpeg(nf_name_2, units="in", width=5, height=5, res=500)
+tree_plot
+#dev.off()
+
+#jpeg(nf_name_3, units="in", width=5, height=5, res=500)
+alns_plot
+#dev.off()
+
+
+
+```
+
+```{r}
+# Let's get a more cleaner perspective
+
+#jpeg("/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Phylogenetics project/output_decipher/clusters.jpeg", units="in", width=4, height=4, res=2000)
+
+x <- autoplot(kmeans(data.frame(matrix_RNA_f), 8), data = data.frame(matrix_RNA_f, loadings.label=TRUE), shape = FALSE, label = TRUE, label.size = 0.3, frame.type = 'norm', alpha=0.03) 
+x + theme(legend.position = 'none') 
+
+#dev.off()
+
+```

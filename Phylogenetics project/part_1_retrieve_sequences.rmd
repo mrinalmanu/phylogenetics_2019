@@ -1,0 +1,52 @@
+---
+title: "phylo_proj_part_1"
+author: "Mrinal Vashisth"
+date: "10/3/2019"
+output: html_document
+---
+
+```{r}
+# Imports
+
+library('rentrez')
+
+```
+
+```{r}
+
+# We need to craft this part for targeted search through the database
+search_term <- 'Ascl1[GENE]'
+
+# Using history will allow us to further easily search for accessions
+search_object <- rentrez::entrez_search(db = 'gene', term = search_term,
+                                        use_history = TRUE, retmax = 500)
+
+gene_ids <- search_object$ids
+head(gene_ids)
+```
+
+```{r}
+############################################################
+# Fetch linked_transcripts to gene_ids
+############################################################
+
+linked_seq_ids <- entrez_link(dbfrom="gene", id=gene_ids, db="nuccore")
+linked_transripts <- linked_seq_ids$links$gene_nuccore_refseqrna
+head(linked_transripts)
+
+```
+
+```{r}
+############################################################
+# Retrieve sequences
+############################################################
+# path = '/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/phylogenetics_project/output'
+# setwd(path)
+
+# It is a good idea to direcly write the results into a file
+# Saving to a variable surpasses the memory limit R has put
+# upon a 'character' type  variable
+
+# write(entrez_fetch(db="nuccore", id=linked_transripts, rettype="fasta"), file = "./ascl1_seq.fasta")
+
+```

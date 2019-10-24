@@ -1,0 +1,6 @@
+
+RAxML can't, parse the alignment file as phylip file 
+it will now try to parse it as FASTA file
+
+RAxML output files with the run ID <GTRCAT_SUP35_RAXML> already exist 
+in directory /home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Week 5/ ...... exiting

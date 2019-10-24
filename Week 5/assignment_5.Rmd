@@ -1,0 +1,265 @@
+---
+title: "Homework 5"
+author: "Mrinal Vashisth"
+date: "10/13/2019"
+output: html_document
+---
+
+
+```{r}
+# Imports 
+library(ape)
+library(ggplot2)
+library(ggtree)
+library(phangorn)
+library(seqinr)
+```
+
+A. ML. For this task we will use the same alignment as last time - see the materials folder.
+	 	 	
+Build an ML tree (500 bootstrap replicates) for the whole sequence using RAxML or IQ-Tree with GTRCAT model. 	
+Build an ML tree (500 bootstrap replicates) with the best partitioning scheme from the previous homework. 
+Root the trees obtained in 1 and 2, and “collapse” (cut-off) clades with bootstrap support < 70%. Display the resulting trees with bootstrap support (you can choose any way to create a picture). Based on the trees constructed, describe the relationship between the taxa S. cerevisiae, S. boulardii, and S. paradoxus. What happens to the position of the outgroup, if we use a model with several partitions? 
+(Bonus question) What conclusion can be drawn from this?
+
+
+```{bash}
+# Part 1
+#####################################
+# Build an ML tree (500 bootstrap replicates) for the whole sequence using RAxML or IQ-Tree with GTRCAT model
+#####################################
+
+<!-- cd /home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Week 5/ -->
+<!-- raxmlHPC='/home/mrinalmanu/standard-RAxML-master/./raxmlHPC' -->
+<!-- input_file_path='SUP35_aln.best.fas' -->
+<!-- partitions_file='partitions_for_raxml.txt' -->
+<!-- run_name='GTRCAT_SUP35_RAXML' -->
+
+<!-- raxmlHPC -m GTRCAT -b 20 -N 500 -s $input_file_path -n $run_name |& tee raxmlHPC_1.log -->
+
+```
+
+```{bash}
+
+#####################################
+# Build an ML tree (500 bootstrap replicates) with the best partitioning scheme from the previous homework
+#####################################
+
+<!-- run_name_partitions='GTRCAT_SUP35_RAXML_PARTITIONS' -->
+
+<!-- raxmlHPC -m GTRCAT -b 20 -N 500 -p 12345 -q partitions_for_raxml.txt -s SUP35_aln.best.fas -n GTRCAT_partition_SUP35_RAXML |& tee raxmlHPC_2_partition.log -->
+
+
+```
+
+```{r}
+
+#############################################
+# Importing tree into R
+#############################################
+
+tree_raxml <- read.tree('/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Week 5/RAxML_bootstrap.GTRCAT_SUP35_RAXML')
+tree_raxml_partitions <- read.tree('/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Week 5/RAxML_bootstrap.GTRCAT_partition_SUP35_RAXML')
+
+# Root the trees obtained in 1 and 2, and “collapse” (cut-off) clades with bootstrap support < 70%.
+
+#############################################
+# Rooting and plotting
+#############################################
+
+```
+
+Let's look at just one tree to understand which one should be an outgroup
+
+```{r}
+
+
+one_tree <- tree_raxml[[1]]
+plot(one_tree)
+
+
+```
+
+Clearly "SUP35_Kla_AB039749" is an outgroup.
+```{r}
+
+# Take each tree from trees, root them and supply as a nexus writable object
+rooted_raxml_trees <- list()
+
+for (i in seq(1,500,by=1)){
+  root_item <- root.phylo(tree_raxml[[i]], outgroup = c('SUP35_Kla_AB039749'))
+  rooted_raxml_trees <- c(rooted_raxml_trees, list(root_item))
+}
+
+name_raxml_500 <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Week 5/raml_tree_NEXUS.nex"
+
+# Let's export this rooted tree to visualise in DensiTree
+#write.nexus(rooted_raxml_trees, file = name_raxml_500)
+
+```
+
+```{r}
+
+# Take each tree from trees, root them and supply as a nexus writable object
+rooted_raxml_partitions_trees <- list()
+
+for (i in seq(1,500,by=1)){
+  root_item <- root.phylo(tree_raxml_partitions[[i]], outgroup = c('SUP35_Kla_AB039749'))
+  rooted_raxml_partitions_trees <- c(rooted_raxml_partitions_trees, list(root_item))
+}
+
+
+name_raxml_500 <- "/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Week 5/raxml_tree_partitions_NEXUS.nex"
+
+# Let's export this rooted tree to visualise in DensiTree
+#write.nexus(rooted_raxml_partitions_trees, file = name_raxml_500)
+
+```
+In partitioning the sequence is divided into parts, such as domains etc. and then tree is formed based on these parts. We are comparing different topological parts between each other and not sequence as a whole.
+
+The outgroups seperate early in the leniage. Partitioning scheme effects the topology of the tree. Several partitions should guide the tree for correct output. In our case we can see that Kla, and Agos are indeed outgroups.
+[https://academic.oup.com/mbe/article/32/6/1611/1068429]
+
+![](/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Week 5/consensus_raxml_500.jpg)
+
+![](/home/mrinalmanu/Documents/3_sem_hws/Phylogenetics homeworks 2019/Week 5/500_partitions_raxml.jpg)
+
+
+Based on the trees constructed, we can see that the taxa S. cerevisiae, S. boulardii, and S. paradoxus are closely related to each other. S. cer. and S. boul. share common ancestor with S. paradoxus.
+
+We can see a clear divergence into three classes/orders. We can see that species within the same genuses group together while the differing once clearly take a different route. Possibly sharing common ancestors with other two clades.
+
+
+################################################################################################
+
+B.
+3. Run 100 thousand generations of the Markov chain. Is the chain converged (standard deviation of split frequencies <0.01)? If not, how many generations did it take for the chain to reach the convergence?
+
+Ans.
+
+We see that the two tree samples become increasingly similar. In our case, the average standard deviation nearly down to 0.0 already after 10,000 generations and then stays at very low values throughout the run.
+
+      Chain swap information for run 1:
+
+                  1      2      3      4 
+           ------------------------------
+         1 |          0.76   0.58   0.43 
+         2 |  16882          0.79   0.61 
+         3 |  16634  16788          0.79 
+         4 |  16667  16373  16656        
+
+      Chain swap information for run 2:
+
+                  1      2      3      4 
+           ------------------------------
+         1 |          0.79   0.60   0.46 
+         2 |  16714          0.78   0.62 
+         3 |  16580  16642          0.80 
+         4 |  16717  16782  16565        
+
+It is the number of times each of the three chains attempted to swap with one of the other chains (three values in lower left, below the main diagonal) and the proportion of time such attempts were successful (three values in upper right, above the main diagonal).
+
+We can see that on an average 16500 swapping attempts were made.
+
+#############################################################
+
+4. Summarize the model parameters. and
+6. At what bootstrap / posterior probability values cutoff the topology of trees from A. and B. will match?
+
+Ans.
+
+ Summary statistics for informative taxon bipartitions
+         (saved to file "input.nexus.compute.tstat"):
+
+      ID   #obs     Probab.     Sd(s)+      Min(s)      Max(s)   Nruns 
+      -----------------------------------------------------------------
+      11  15002    1.000000    0.000000    1.000000    1.000000    2
+      12  15002    1.000000    0.000000    1.000000    1.000000    2
+      13  15002    1.000000    0.000000    1.000000    1.000000    2
+      14  15002    1.000000    0.000000    1.000000    1.000000    2
+      15  11280    0.751900    0.024321    0.734702    0.769097    2
+      16   7851    0.523330    0.004242    0.520331    0.526330    2
+      17   5875    0.391614    0.015743    0.380483    0.402746    2
+      18   4651    0.310025    0.014046    0.300093    0.319957    2
+      19   4594    0.306226    0.002451    0.304493    0.307959    2
+      20   4476    0.298360    0.001697    0.297160    0.299560    2
+      21   3334    0.222237    0.023567    0.205573    0.238901    2
+      22   2541    0.169377    0.001791    0.168111    0.170644    2
+      -----------------------------------------------------------------
+      + Convergence diagnostic (standard deviation of split frequencies)
+        should approach 0.0 as runs converge.
+
+
+
+For each parameter, the table lists the mean and variance of the sampled values,
+the lower and upper boundaries of the 95 % credibility interval, and the median
+of the sampled values. The six rate parameters of the
+GTR model are given as proportions of the rate sum (the Dirichlet
+parameterization).
+
+The last column in the table contains a convergence diagnostic, the Potential
+Scale Reduction Factor (PSRF). If we have a good sample from the posterior
+probability distribution, these values should be close to 1.0. 
+
+
+#############################################################
+5. Summarize the trees.
+
+I have decided to use online version of MrBayes for this part.
+
+      Clade credibility values:
+
+      /--------------------------------------------------------------- SUP35_Kla (1)
+      |                                                                               
+      |--------------------------------------------------------------- SUP35_Agos (2)
+      |                                                                               
+      |                                                    /---------- SUP35_Sc__ (3)
+      |                                                    |                          
+      |                                         /----100---+---------- SUP35_Sbou (4)
+      |                                         |          |                          
+      +                               /---100---+          \---------- SUP35_Sc (5)
+      |                               |         |                                     
+      |                    /----100---+         \--------------------- SUP35_Spar (6)
+      |                    |          |                                               
+      |          /----52---+          \------------------------------- SUP35_Smik (7)
+      |          |         |                                                          
+      |          |         \------------------------------------------ SUP35_Skud (9)
+      \----100---+                                                                    
+                 |                                         /---------- SUP35_Sarb (8)
+                 \--------------------75-------------------+                          
+                                                           \---------- SUP35_Seub (10)
+                                                                                      
+
+      Phylogram (based on average branch lengths):
+
+      /------------------------------------- SUP35_Kla (1)
+      |                                                                               
+      |-------------------------------------------------- SUP35_Agos (2)
+      |                                                                               
+      |                                                                / SUP35_Sc__ (3)
+      |                                                                |              
+      |                                                         /------+ SUP35_Sbou (4)
+      |                                                         |      |              
+      +                                                    /----+      \ SUP35_Sc (5)
+      |                                                    |    |                     
+      |                                               /----+    \----- SUP35_Spar (6)
+      |                                               |    |                          
+      |                                              /+    \----------- SUP35_Smik (7)
+      |                                              ||                               
+      |                                              |\-------------- SUP35_Skud (9)
+      \----------------------------------------------+                                
+                                                     | /----------- SUP35_Sarb (8)
+                                                     \-+                              
+                                                       \-------------- SUP35_Seub (10)
+                                                                                      
+      |-------------| 0.100 expected changes per site
+
+
+#############################################################
+
+
+################################################################################################
+
+C.  Link to my project report:
+
+https://github.com/mrinalmanu/phylogenetics_2019/blob/master/project_report.pdf
